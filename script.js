@@ -771,22 +771,6 @@ async function runCode() {
     }
     const language = currentLanguage;
 
-    // Check if Judge0 API key is set for languages that need it
-    if (['python', 'java', 'cpp'].includes(language) && !CONFIG.JUDGE0.key) {
-        const outputConsole = document.getElementById('output-console');
-        outputConsole.innerHTML = `
-            <div class="error">
-                <p><i class="fas fa-exclamation-circle"></i> Judge0 API key not set!</p>
-                <p>Please go to Settings and enter your Judge0 API key to run ${language.toUpperCase()} code.</p>
-                <button onclick="openSettings()" class="settings-btn">
-                    <i class="fas fa-cog"></i> Open Settings
-                </button>
-            </div>
-        `;
-        switchPreviewPaneTab('output-section', document.querySelector('.preview-tab[onclick*="output-section"]'));
-        return;
-    }
-
     // Show output section
     const previewContainer = document.getElementById('right-panel');
     const editorContainer = document.querySelector('.editor-container');
@@ -943,91 +927,6 @@ async function runCode() {
 
         } catch (error) {
             appendTerminalError(`Python Error: ${error.message}`);
-        }
-    } else if (['java', 'cpp'].includes(language)) {
-        try {
-            const languageId = CONFIG.JUDGE0.languages[language] || 71;
-            
-            // Create a simple input field
-            const inputContainer = document.createElement('div');
-            inputContainer.className = 'code-input-container';
-            inputContainer.innerHTML = `
-                <input type="text" class="code-input" placeholder="Enter input here...">
-                <button class="code-input-submit">Submit</button>
-            `;
-            outputConsole.appendChild(inputContainer);
-            
-            const input = inputContainer.querySelector('.code-input');
-            const submitButton = inputContainer.querySelector('.code-input-submit');
-            
-            // Focus the input field
-            input.focus();
-            
-            // Handle input submission
-            const handleSubmit = async () => {
-                const userInput = input.value;
-                if (!userInput) return;
-                
-                // Disable input while processing
-                input.disabled = true;
-                submitButton.disabled = true;
-                
-                try {
-                    // Submit code with user input
-                    const response = await fetch('https://judge0-ce.p.rapidapi.com/submissions', {
-                        method: 'POST',
-                        headers: {
-                            'content-type': 'application/json',
-                            'X-RapidAPI-Host': CONFIG.JUDGE0.host,
-                            'X-RapidAPI-Key': CONFIG.JUDGE0.key
-                        },
-                        body: JSON.stringify({
-                            language_id: languageId,
-                            source_code: code,
-                            stdin: userInput + '\n'
-                        })
-                    });
-
-                    const { token } = await response.json();
-
-                    // Poll for results
-                    let result;
-                    do {
-                        await new Promise(resolve => setTimeout(resolve, 1000));
-                        const resultResponse = await fetch(`https://judge0-ce.p.rapidapi.com/submissions/${token}`, {
-                            headers: {
-                                'X-RapidAPI-Host': CONFIG.JUDGE0.host,
-                                'X-RapidAPI-Key': CONFIG.JUDGE0.key
-                            }
-                        });
-                        result = await resultResponse.json();
-                    } while (result.status.id <= 2);
-
-                    // Display results
-                    if (result.stdout) {
-                        appendTerminalOutput(result.stdout);
-                    }
-                    if (result.stderr) {
-                        appendTerminalError(result.stderr);
-                    }
-                } catch (error) {
-                    appendTerminalError(`Execution Error: ${error.message}`);
-                } finally {
-                    // Remove the input container
-                    inputContainer.remove();
-                }
-            };
-
-            // Add event listeners
-            submitButton.onclick = handleSubmit;
-            input.onkeypress = (e) => {
-                if (e.key === 'Enter') {
-                    handleSubmit();
-                }
-            };
-            
-        } catch (error) {
-            appendTerminalError(`Execution Error: ${error.message}`);
         }
     } else {
         appendTerminalError(`Running ${language} code is not directly supported in the browser.`);
@@ -2169,17 +2068,17 @@ function closeSettings() {
 }
 
 function toggleApiKeyVisibility() {
-    const input = document.getElementById('gemini-api-key');
-    const button = input.nextElementSibling.querySelector('i');
+    const apiKeyInput = document.getElementById('gemini-api-key');
+    const icon = apiKeyInput.nextElementSibling.querySelector('i');
     
-    if (input.type === 'password') {
-        input.type = 'text';
-        button.classList.remove('fa-eye');
-        button.classList.add('fa-eye-slash');
+    if (apiKeyInput.type === 'password') {
+        apiKeyInput.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
     } else {
-        input.type = 'password';
-        button.classList.remove('fa-eye-slash');
-        button.classList.add('fa-eye');
+        apiKeyInput.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
     }
 }
 
@@ -2200,36 +2099,27 @@ function toggleJudge0ApiKeyVisibility() {
 
 function saveSettings() {
     const geminiApiKey = document.getElementById('gemini-api-key').value.trim();
-    const judge0ApiKey = document.getElementById('judge0-api-key').value.trim();
     
-    // Validate API keys (basic validation)
     if (!geminiApiKey) {
-        alert('Please enter a valid Gemini API key');
+        alert('Please enter your Gemini API key');
         return;
     }
     
-    if (!judge0ApiKey) {
-        alert('Please enter a valid Judge0 API key');
-        return;
-    }
-    
-    // Save to localStorage
+    // Save API key to localStorage
     localStorage.setItem('geminiApiKey', geminiApiKey);
-    localStorage.setItem('judge0ApiKey', judge0ApiKey);
     
-    // Update CONFIG object
+    // Update CONFIG
     CONFIG.API.key = geminiApiKey;
-    CONFIG.JUDGE0.key = judge0ApiKey;
     
-    // Close modal
-    closeSettings();
+    // Close settings modal
+    document.getElementById('settings-modal').style.display = 'none';
     
     // Show success message
     const successMessage = document.createElement('div');
     successMessage.className = 'success-message';
     successMessage.innerHTML = `
         <i class="fas fa-check-circle"></i>
-        Settings saved successfully! Your API keys will be remembered for future visits.
+        <span>Settings saved successfully!</span>
     `;
     document.body.appendChild(successMessage);
     
@@ -2237,4 +2127,9 @@ function saveSettings() {
     setTimeout(() => {
         successMessage.remove();
     }, 3000);
+}
+
+function loadSettings() {
+    const geminiApiKey = localStorage.getItem('geminiApiKey') || '';
+    document.getElementById('gemini-api-key').value = geminiApiKey;
 }
