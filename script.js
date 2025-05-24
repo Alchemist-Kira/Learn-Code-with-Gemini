@@ -2,12 +2,12 @@
 const CONFIG = {
     // API Configuration
     API: {
-        key: 'AIzaSyALKgo_qIqOL-aoP2UDAXocThOoyp0Uw-A', // Your API key
+        key: '', // Empty by default, user must provide their own key
         endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
     },
     // Judge0 API Configuration
     JUDGE0: {
-        key: '5086af47e0msh92df25a135804c3p12c951jsn92e9d534739b',
+        key: '', // Empty by default, user must provide their own key
         host: 'judge0-ce.p.rapidapi.com',
         languages: {
             'python': 71,    // Python 3.9.4
@@ -223,10 +223,7 @@ async function readFile(fileHandle, relativePath = null) {
 
 // --- Folder Collapse/Expand (Dynamic) ---
 async function listDirectoryContents(dirHandle, parentElement, currentPath) {
-    // Only clear if this is the initial load (not just toggling collapse)
-    if (!parentElement.classList.contains('file-list-loaded')) {
-        parentElement.innerHTML = '';
-    }
+    parentElement.innerHTML = '';
     const folders = [];
     const filesInDir = [];
 
@@ -258,31 +255,24 @@ async function listDirectoryContents(dirHandle, parentElement, currentPath) {
         parentElement.appendChild(folderElement);
 
         const folderToggleIcon = folderElement.querySelector('.folder-toggle');
-        const folderNameSpan = folderElement.querySelector('.folder-name');
         const fileListContainer = folderElement.querySelector('.file-list');
         
-        // Helper to toggle expansion and load contents if needed
-        async function toggleFolderExpand(e) {
+        folderToggleIcon.addEventListener('click', async (e) => {
             e.stopPropagation();
             const parentFolderRoot = e.target.closest('.folder-root');
             if (parentFolderRoot) {
-                const isExpanding = !parentFolderRoot.classList.contains('expanded');
                 parentFolderRoot.classList.toggle('expanded');
-                if (isExpanding && fileListContainer.children.length === 0) {
+                if (parentFolderRoot.classList.contains('expanded') && fileListContainer.children.length === 0) {
                     await listDirectoryContents(folder.handle, fileListContainer, folder.path);
-                    fileListContainer.classList.add('file-list-loaded');
                 }
             }
-        }
-        folderToggleIcon.addEventListener('click', toggleFolderExpand);
-        folderNameSpan.addEventListener('click', toggleFolderExpand);
+        });
     }
 
     // Create file elements
     for (const file of filesInDir) {
         addFileToExplorer(file.name, parentElement, file.handle, file.path);
     }
-    parentElement.classList.add('file-list-loaded');
 }
 
 function addFileToExplorer(fileName, parentElementId, fileHandle, filePath = fileName) {
@@ -781,6 +771,22 @@ async function runCode() {
     }
     const language = currentLanguage;
 
+    // Check if Judge0 API key is set for languages that need it
+    if (['python', 'java', 'cpp'].includes(language) && !CONFIG.JUDGE0.key) {
+        const outputConsole = document.getElementById('output-console');
+        outputConsole.innerHTML = `
+            <div class="error">
+                <p><i class="fas fa-exclamation-circle"></i> Judge0 API key not set!</p>
+                <p>Please go to Settings and enter your Judge0 API key to run ${language.toUpperCase()} code.</p>
+                <button onclick="openSettings()" class="settings-btn">
+                    <i class="fas fa-cog"></i> Open Settings
+                </button>
+            </div>
+        `;
+        switchPreviewPaneTab('output-section', document.querySelector('.preview-tab[onclick*="output-section"]'));
+        return;
+    }
+
     // Show output section
     const previewContainer = document.getElementById('right-panel');
     const editorContainer = document.querySelector('.editor-container');
@@ -1073,17 +1079,7 @@ function loadInitialFilesAndState() {
         CONFIG.JUDGE0.key = judge0ApiKey;
     }
     
-    // Clear localStorage to start fresh
-    localStorage.clear();
-    
-    // Restore API keys after clearing localStorage
-    if (geminiApiKey) {
-        localStorage.setItem('geminiApiKey', geminiApiKey);
-    }
-    if (judge0ApiKey) {
-        localStorage.setItem('judge0ApiKey', judge0ApiKey);
-    }
-    
+    // Load editor state
     const savedFiles = localStorage.getItem('editorFiles');
     const lastActiveFile = localStorage.getItem('activeFile');
 
@@ -1317,6 +1313,22 @@ aiPrompt.addEventListener('keypress', function(e) {
 async function askGemini() {
     const prompt = document.getElementById('ai-prompt').value.trim();
     if (!prompt) return;
+
+    // Check if API key is set
+    if (!CONFIG.API.key) {
+        const aiResponse = document.getElementById('ai-response');
+        aiResponse.innerHTML = `
+            <div class="error">
+                <p><i class="fas fa-exclamation-circle"></i> Gemini API key not set!</p>
+                <p>Please go to Settings and enter your Gemini API key to use the AI features.</p>
+                <button onclick="openSettings()" class="settings-btn">
+                    <i class="fas fa-cog"></i> Open Settings
+                </button>
+            </div>
+        `;
+        switchPreviewPaneTab('ai-section', document.querySelector('.preview-tab[onclick*="ai-section"]'));
+        return;
+    }
 
     const aiResponse = document.getElementById('ai-response');
     aiResponse.innerHTML = '<div class="loading">Thinking...</div>';
@@ -2213,5 +2225,16 @@ function saveSettings() {
     closeSettings();
     
     // Show success message
-    alert('Settings saved successfully!');
+    const successMessage = document.createElement('div');
+    successMessage.className = 'success-message';
+    successMessage.innerHTML = `
+        <i class="fas fa-check-circle"></i>
+        Settings saved successfully! Your API keys will be remembered for future visits.
+    `;
+    document.body.appendChild(successMessage);
+    
+    // Remove success message after 3 seconds
+    setTimeout(() => {
+        successMessage.remove();
+    }, 3000);
 }
