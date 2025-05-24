@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Editor with Gemini AI</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Font Awesome for VS Code-like icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <div class="header">
+        <div class="header-left">
+            <i class="fas fa-bars toggle-sidebar-button" onclick="toggleSidebar()"></i>
+            <h2>Code Editor with Gemini AI</h2>
+        </div>
+        <div class="header-center">
+            <div class="editor-tabs" id="editor-tabs-container">
+                <button class="new-tab-btn" onclick="addNewTab()" title="New File"><i class="fas fa-plus"></i></button>
+            </div>
+        </div>
+        <div class="header-right">
+            <button onclick="toggleRightPanel()" title="Toggle Preview Panel"><i class="fas fa-eye-slash"></i> Toggle Preview</button>
+            <button onclick="saveCode()" title="Save Current File"><i class="fas fa-save"></i> Save</button>
+            <button onclick="saveFileAs()" title="Save Current File As..."><i class="fas fa-file-export"></i> Save As</button>
+            <button onclick="openSettings()" title="Settings"><i class="fas fa-cog"></i> Settings</button>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Settings</h2>
+                <button class="close-modal" onclick="closeSettings()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-section">
+                    <h3>API Configuration</h3>
+                    <div class="setting-item">
+                        <label for="gemini-api-key">Gemini API Key:</label>
+                        <div class="api-key-input">
+                            <input type="password" id="gemini-api-key" placeholder="Enter your Gemini API key">
+                            <button onclick="toggleApiKeyVisibility()" title="Show/Hide API Key">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <label for="judge0-api-key">Judge0 API Key:</label>
+                        <div class="api-key-input">
+                            <input type="password" id="judge0-api-key" placeholder="Enter your Judge0 API key">
+                            <button onclick="toggleJudge0ApiKeyVisibility()" title="Show/Hide API Key">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="saveSettings()" class="save-settings">Save Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-wrapper">
+        <!-- Left Sidebar (Explorer) -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h3>EXPLORER</h3>
+                <div class="sidebar-actions">
+                    <button class="icon-button" onclick="openFilePicker()" title="Open File"><i class="fas fa-file-alt"></i></button>
+                    <button class="icon-button" onclick="openFolderPicker()" title="Open Folder"><i class="fas fa-folder-open"></i></button>
+                    <button class="icon-button" onclick="addNewTab()" title="New File"><i class="fas fa-file-circle-plus"></i></button>
+                </div>
+            </div>
+            <div class="file-tree" id="file-tree">
+                <div class="file-tree-item folder-root expanded" data-path="/">
+                    <i class="fas fa-chevron-down folder-toggle"></i>
+                    <i class="fas fa-folder"></i> <span class="folder-name">OPEN FILES</span>
+                    <div class="file-list" id="open-files-list">
+                        <!-- Default/Opened Files will go here dynamically -->
+                    </div>
+                </div>
+                <div class="file-tree-item folder-root" data-path="/">
+                    <i class="fas fa-chevron-right folder-toggle"></i>
+                    <i class="fas fa-folder"></i> <span class="folder-name" id="opened-folder-name">NO FOLDER OPEN</span>
+                    <div class="file-list" id="directory-files-list">
+                        <!-- Files from opened directory will go here dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Editor and Right Panel Container -->
+        <div class="editor-and-right-panel-container">
+            <div class="editor-container">
+                <div class="editor-header">
+                    <button class="run-button" onclick="runCode()" id="runButton" title="Run Code"><i class="fas fa-play"></i> Run</button>
+                    <button class="format-button" onclick="formatCode()" title="Format Code"><i class="fas fa-code"></i> Format</button>
+                    <button class="help-button" onclick="requestHelp()" title="Ask Gemini AI for help"><i class="fas fa-question-circle"></i> Get Help</button>
+                </div>
+                <div class="editor">
+                    <div class="line-numbers" id="line-numbers"></div>
+                    <textarea id="code-editor" spellcheck="false"></textarea>
+                </div>
+            </div>
+
+            <div class="resizer" id="resizer"></div>
+
+            <div class="right-panel" id="right-panel">
+                <div class="preview-header">
+                    <div class="preview-tabs">
+                        <button class="preview-tab active" onclick="switchPreviewPaneTab('preview-section', this)"><i class="fas fa-eye"></i> Preview</button>
+                        <button class="preview-tab" onclick="switchPreviewPaneTab('ai-section', this)"><i class="fas fa-robot"></i> AI Chat</button>
+                        <button class="preview-tab" onclick="switchPreviewPaneTab('output-section', this)"><i class="fas fa-terminal"></i> Output</button>
+                    </div>
+                </div>
+                <div class="preview-content">
+                    <div class="preview-section active" id="preview-section">
+                        <iframe class="preview-frame" id="preview-frame"></iframe>
+                        <div class="preview-overlay hidden" id="preview-overlay"></div>
+                    </div>
+                    <div class="preview-section" id="ai-section">
+                        <div class="ai-container">
+                            <div class="ai-response" id="ai-response"></div>
+                            <div class="ai-input">
+                                <input type="text" id="ai-prompt" placeholder="Ask Gemini AI for help with your code...">
+                                <button onclick="askGemini()" title="Send to AI"><i class="fas fa-paper-plane"></i> Ask AI</button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- New Output Section -->
+                    <div class="preview-section" id="output-section">
+                        <pre id="output-console"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
