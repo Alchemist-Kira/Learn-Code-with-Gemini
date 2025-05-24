@@ -82,7 +82,7 @@ int main() {
 const extensionToLanguage = {
     'html': 'html', 'css': 'css', 'js': 'javascript',
     'py': 'python', 'java': 'java', 'cpp': 'cpp',
-    'txt': 'text', // Generic text file
+    'rs': 'rust', 'txt': 'text', // Added Rust
 };
 
 function getLanguageFromFileName(fileName) {
@@ -1242,7 +1242,70 @@ async function askGemini() {
     try {
         let systemPrompt = '';
         if (isLearningRequest) {
-            systemPrompt = `You are a patient and knowledgeable programming teacher. When teaching a programming language or concept:
+            // Get the current language or detect from prompt
+            let targetLanguage = currentLanguage;
+            
+            // Common programming languages and their variations
+            const languagePatterns = {
+                'javascript': ['javascript', 'js', 'ecmascript'],
+                'html': ['html', 'hypertext markup language'],
+                'css': ['css', 'cascading style sheets'],
+                'python': ['python', 'py'],
+                'java': ['java'],
+                'cpp': ['c++', 'cpp', 'c plus plus'],
+                'rust': ['rust', 'rs'],
+                'typescript': ['typescript', 'ts'],
+                'ruby': ['ruby', 'rb'],
+                'php': ['php'],
+                'swift': ['swift'],
+                'kotlin': ['kotlin', 'kt'],
+                'go': ['go', 'golang'],
+                'scala': ['scala'],
+                'perl': ['perl', 'pl'],
+                'r': ['r'],
+                'matlab': ['matlab'],
+                'sql': ['sql', 'mysql', 'postgresql', 'sqlite'],
+                'bash': ['bash', 'shell', 'sh'],
+                'powershell': ['powershell', 'ps'],
+                'csharp': ['c#', 'csharp', 'dotnet'],
+                'c': ['c'],
+                'assembly': ['assembly', 'asm'],
+                'fortran': ['fortran'],
+                'cobol': ['cobol'],
+                'pascal': ['pascal'],
+                'lisp': ['lisp'],
+                'prolog': ['prolog'],
+                'haskell': ['haskell', 'hs'],
+                'erlang': ['erlang'],
+                'elixir': ['elixir'],
+                'clojure': ['clojure', 'clj'],
+                'fsharp': ['f#', 'fsharp'],
+                'dart': ['dart'],
+                'julia': ['julia'],
+                'lua': ['lua'],
+                'groovy': ['groovy'],
+                'objective-c': ['objective-c', 'objc'],
+                'r': ['r'],
+                'scala': ['scala'],
+                'scheme': ['scheme'],
+                'smalltalk': ['smalltalk'],
+                'tcl': ['tcl'],
+                'vb': ['visual basic', 'vb', 'vb.net'],
+                'xml': ['xml'],
+                'yaml': ['yaml', 'yml'],
+                'json': ['json'],
+                'markdown': ['markdown', 'md']
+            };
+
+            // Check prompt for language keywords
+            for (const [lang, patterns] of Object.entries(languagePatterns)) {
+                if (patterns.some(pattern => prompt.toLowerCase().includes(pattern))) {
+                    targetLanguage = lang;
+                    break;
+                }
+            }
+
+            systemPrompt = `You are a patient and knowledgeable programming teacher. When teaching ${targetLanguage}:
 1. Focus on ONE concept at a time
 2. Keep explanations concise and clear
 3. Provide ONE practical example
@@ -1254,7 +1317,7 @@ async function askGemini() {
 [Brief explanation of the concept]
 
 ### Example:
-\`\`\`[language]
+\`\`\`${targetLanguage}
 [One clear example]
 \`\`\`
 
